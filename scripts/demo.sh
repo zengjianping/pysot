@@ -1,0 +1,11 @@
+#!/bin/bash
+
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+model_name=siamrpn_alex_dwxcorr
+
+python tools/demo.py \
+    --config experiments/${model_name}/config.yaml \
+    --snapshot datas/models/${model_name}/model.pth \
+    --video demo/bag.avi
+

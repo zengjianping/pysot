@@ -18,6 +18,10 @@ from pysot.models.neck import get_neck
 class ModelBuilder(nn.Module):
     def __init__(self):
         super(ModelBuilder, self).__init__()
+        
+        self.neck = None
+        self.mask_head = None
+        self.refine_head = None
 
         # build backbone
         self.backbone = get_backbone(cfg.BACKBONE.TYPE,
@@ -42,26 +46,26 @@ class ModelBuilder(nn.Module):
 
     def template(self, z):
         zf = self.backbone(z)
-        if cfg.MASK.MASK:
+        if self.mask_head is not None:
             zf = zf[-1]
-        if cfg.ADJUST.ADJUST:
+        if self.neck is not None:
             zf = self.neck(zf)
         self.zf = zf
 
     def track(self, x):
         xf = self.backbone(x)
-        if cfg.MASK.MASK:
+        if self.mask_head is not None:
             self.xf = xf[:-1]
             xf = xf[-1]
-        if cfg.ADJUST.ADJUST:
+        if self.neck is not None:
             xf = self.neck(xf)
         cls, loc = self.rpn_head(self.zf, xf)
-        if cfg.MASK.MASK:
+        if self.mask_head is not None:
             mask, self.mask_corr_feature = self.mask_head(self.zf, xf)
         return {
                 'cls': cls,
                 'loc': loc,
-                'mask': mask if cfg.MASK.MASK else None
+                'mask': mask if self.mask_head is not None else None
                }
 
     def mask_refine(self, pos):
