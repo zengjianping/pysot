@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from typing import List, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -102,30 +103,49 @@ class MultiRPN(RPN):
         if self.weighted:
             self.cls_weight = nn.Parameter(torch.ones(len(in_channels)))
             self.loc_weight = nn.Parameter(torch.ones(len(in_channels)))
+        else:
+            self.cls_weight = None
+            self.loc_weight = None
 
-    def forward(self, z_fs, x_fs):
-        cls = []
-        loc = []
-        for idx, (z_f, x_f) in enumerate(zip(z_fs, x_fs), start=2):
-            rpn = getattr(self, 'rpn'+str(idx))
-            c, l = rpn(z_f, x_f)
+    def forward(self, z_fs:List[torch.Tensor], x_fs:List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+        cls: List[torch.Tensor] = []
+        loc: List[torch.Tensor] = []
+        
+        if False:
+            for idx, (z_f, x_f) in enumerate(zip(z_fs, x_fs), start=2):
+                rpn = getattr(self, 'rpn'+str(idx))
+                c, l = rpn(z_f, x_f)
+                cls.append(c)
+                loc.append(l)
+        else:
+            c, l = self.rpn2(z_fs[0], x_fs[0])
+            cls.append(c)
+            loc.append(l)
+            c, l = self.rpn3(z_fs[1], x_fs[1])
+            cls.append(c)
+            loc.append(l)
+            c, l = self.rpn4(z_fs[2], x_fs[2])
             cls.append(c)
             loc.append(l)
 
-        if self.weighted:
+        if self.cls_weight is not None and self.loc_weight is not None:
             cls_weight = F.softmax(self.cls_weight, 0)
             loc_weight = F.softmax(self.loc_weight, 0)
-
-        def avg(lst):
-            return sum(lst) / len(lst)
-
-        def weighted_avg(lst, weight):
-            s = 0
-            for i in range(len(weight)):
-                s += lst[i] * weight[i]
-            return s
-
-        if self.weighted:
             return weighted_avg(cls, cls_weight), weighted_avg(loc, loc_weight)
         else:
             return avg(cls), avg(loc)
+
+def avg(lst: List[torch.Tensor]) -> torch.Tensor:
+    return torch.mean(torch.stack(lst), dim=0)
+
+def weighted_avg(lst: List[torch.Tensor], weight: torch.Tensor) -> torch.Tensor:
+    # 堆叠成 (N, *shape) 的张量
+    stacked = torch.stack(lst)  # shape: (N, ...)
+    # 归一化权重并调整维度用于广播
+    #weights = weights / weights.sum()
+    # weights shape: (N,) -> (N, 1, 1, ...) 用于广播
+    #view_shape = [-1] + [1] * (stacked.dim() - 1)
+    weight = weight.view(-1, 1, 1, 1, 1)
+    # 加权求和并在第0维求和
+    return (stacked * weight).sum(dim=0)
+

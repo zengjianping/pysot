@@ -194,10 +194,11 @@ class ResNet(nn.Module):
         p4 = self.layer4(p3)
         out = [x_, p1, p2, p3, p4]
         out = [out[i] for i in self.used_layers]
-        if len(out) == 1:
-            return out[0]
-        else:
-            return out
+        #if len(out) == 1:
+        #    return out[0]
+        #else:
+        #    return out
+        return out
 
 
 def resnet18(**kwargs):

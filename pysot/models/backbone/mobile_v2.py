@@ -122,14 +122,32 @@ class MobileNetV2(nn.Sequential):
 
     def forward(self, x):
         outputs = []
-        for idx in range(8):
-            name = "layer%d" % idx
-            x = getattr(self, name)(x)
+        if False:
+            for idx in range(8):
+                name = "layer%d" % idx
+                x = getattr(self, name)(x)
+                outputs.append(x)
+        else:
+            x = self.layer0(x)
             outputs.append(x)
-        p0, p1, p2, p3, p4 = [outputs[i] for i in [1, 2, 3, 5, 7]]
+            x = self.layer1(x)
+            outputs.append(x)
+            x = self.layer2(x)
+            outputs.append(x)
+            x = self.layer3(x)
+            outputs.append(x)
+            x = self.layer4(x)
+            outputs.append(x)
+            x = self.layer5(x)
+            outputs.append(x)
+            x = self.layer6(x)
+            outputs.append(x)
+            x = self.layer7(x)
+            outputs.append(x)
+        #p0, p1, p2, p3, p4 = [outputs[i] for i in [1, 2, 3, 5, 7]]
         out = [outputs[i] for i in self.used_layers]
-        if len(out) == 1:
-            return out[0]
+        #if len(out) == 1:
+        #    return out[0]
         return out
 
 
