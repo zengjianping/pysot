@@ -133,6 +133,17 @@ MODELS = {
             'neck_kwargs': {'in_channels': [512, 1024, 2048], 'out_channels': [256, 256, 256]}
         }
     },
+    "siamrpn_r50_l234_dwxcorr_otb": {
+        "model_type": SiamRPNppModel,
+        "model_params": {
+            'backbone_type': 'resnet50',
+            'backbone_kwargs': {'used_layers': [2, 3, 4]},
+            'rpn_type': 'MultiRPN',
+            'rpn_kwargs': {'anchor_num': 5, 'in_channels': [256, 256, 256], 'weighted': False},
+            'neck_type': 'AdjustAllLayer',
+            'neck_kwargs': {'in_channels': [512, 1024, 2048], 'out_channels': [256, 256, 256]}
+        }
+    },
     "siamrpn_mobilev2_l234_dwxcorr": {
         "model_type": SiamRPNppModel,
         "model_params": {
