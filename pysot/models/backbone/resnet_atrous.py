@@ -191,8 +191,11 @@ class ResNet(nn.Module):
         p1 = self.layer1(x)
         p2 = self.layer2(p1)
         p3 = self.layer3(p2)
-        p4 = self.layer4(p3)
-        out = [x_, p1, p2, p3, p4]
+        if True:
+            p4 = self.layer4(p3)
+            out = [x_, p1, p2, p3, p4]
+        else:
+            out = [x_, p1, p2, p3]
         out = [out[i] for i in self.used_layers]
         #if len(out) == 1:
         #    return out[0]

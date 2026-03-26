@@ -103,6 +103,23 @@ class SiamRPNppModel(TrackerModel):
         return self.track(x)
 
 
+class SiamMaskModel(TrackerModel):
+    def __init__(self, model_params:dict):
+        super(SiamMaskModel, self).__init__(**model_params)
+
+    @torch.jit.export
+    def extract_template(self, z: torch.Tensor) -> None:
+        self._template(z)
+
+    @torch.jit.export
+    def track(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        return self._track(x)
+
+    def forward(self, z: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self.extract_template(z)
+        return self.track(x)
+
+
 MODELS = {
     "siamrpn_alex_dwxcorr": {
         "model_type": DaSiamRPNModel,
@@ -144,6 +161,17 @@ MODELS = {
             'neck_kwargs': {'in_channels': [512, 1024, 2048], 'out_channels': [256, 256, 256]}
         }
     },
+    "siamrpn_r50_l234_dwxcorr_lt": {
+        "model_type": SiamRPNppModel,
+        "model_params": {
+            'backbone_type': 'resnet50',
+            'backbone_kwargs': {'used_layers': [2, 3, 4]},
+            'rpn_type': 'MultiRPN',
+            'rpn_kwargs': {'anchor_num': 5, 'in_channels': [128, 256, 512], 'weighted': True},
+            'neck_type': 'AdjustAllLayer',
+            'neck_kwargs': {'in_channels': [512, 1024, 2048], 'out_channels': [128, 256, 512]}
+        }
+    },
     "siamrpn_mobilev2_l234_dwxcorr": {
         "model_type": SiamRPNppModel,
         "model_params": {
@@ -153,6 +181,21 @@ MODELS = {
             'rpn_kwargs': {'anchor_num': 5, 'in_channels': [256, 256, 256], 'weighted': False},
             'neck_type': 'AdjustAllLayer',
             'neck_kwargs': {'in_channels': [44, 134, 448], 'out_channels': [256, 256, 256]}
+        }
+    },
+    "siammask_r50_l3": {
+        "model_type": SiamMaskModel,
+        "model_params": {
+            'backbone_type': 'resnet50',
+            'backbone_kwargs': {'used_layers': [0, 1, 2, 3]},
+            'rpn_type': 'DepthwiseRPN',
+            'rpn_kwargs': {'anchor_num': 5, 'in_channels': 256, 'out_channels': 256},
+            'neck_type': 'AdjustAllLayer',
+            'neck_kwargs': {'in_channels': [1024], 'out_channels': [256]},
+            'mask_type': 'MaskCorr',
+            'mask_kwargs': {'in_channels': 256, 'hidden': 256, 'out_channels': 3969},
+            'refine_type': 'Refine',
+            'refine_kwargs': {}
         }
     }
 }

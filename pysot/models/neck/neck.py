@@ -53,6 +53,8 @@ class AdjustAllLayer(nn.Module):
                     adj_layer = getattr(self, 'downsample'+str(i+2))
                     out.append(adj_layer(features[i]))
                 return out
+        #elif True:
+        #    return self.downsample(features)
         else:
             out = []
             out.append(self.downsample2(features[0]))
