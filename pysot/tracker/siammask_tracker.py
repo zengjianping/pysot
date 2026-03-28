@@ -27,7 +27,7 @@ class SiamMaskTracker(SiamRPNTracker):
         c = -a * bbox[0]
         d = -b * bbox[1]
         mapping = np.array([[a, 0, c],
-                            [0, b, d]]).astype(np.float)
+                            [0, b, d]]).astype(np.float32)
         crop = cv2.warpAffine(image, mapping, (out_sz[0], out_sz[1]),
                               flags=cv2.INTER_LINEAR,
                               borderMode=cv2.BORDER_CONSTANT,
@@ -37,7 +37,7 @@ class SiamMaskTracker(SiamRPNTracker):
     def _mask_post_processing(self, mask):
         target_mask = (mask > cfg.TRACK.MASK_THERSHOLD)
         target_mask = target_mask.astype(np.uint8)
-        if cv2.__version__[-5] == '4':
+        if cv2.__version__.startswith('4'):
             contours, _ = cv2.findContours(target_mask,
                                            cv2.RETR_EXTERNAL,
                                            cv2.CHAIN_APPROX_NONE)

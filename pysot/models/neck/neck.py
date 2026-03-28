@@ -53,10 +53,10 @@ class AdjustAllLayer(nn.Module):
                 out.append(adj_layer(features[i]))
             return out
 
-    def forward1(self, features: torch.Tensor):
+    def forward1(self, features: torch.Tensor) -> torch.Tensor:
         return self.downsample(features)
 
-    def forward2(self, features: torch.Tensor):
+    def forward2(self, features: List[torch.Tensor]) -> List[torch.Tensor]:
         out = []
         out.append(self.downsample2(features[0]))
         out.append(self.downsample3(features[1]))

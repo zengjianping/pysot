@@ -3,7 +3,7 @@ import argparse
 import torch
 import numpy as np
 from glob import glob
-from typing import Tuple, Optional
+from typing import Tuple, List, Optional
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -65,7 +65,7 @@ class TrackerModel(nn.Module):
         else:
             return (cls, loc)
 
-    def _mask_refine(self, pos):
+    def _mask_refine(self, pos: List[int]) -> torch.Tensor:
         return self.refine_head(self.xf, self.mask_corr_feature, pos)
 
 
@@ -114,6 +114,10 @@ class SiamMaskModel(TrackerModel):
     @torch.jit.export
     def track(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         return self._track(x)
+
+    @torch.jit.export
+    def mask_refine(self, pos: List[int]) -> torch.Tensor:
+        return self._mask_refine(pos)
 
     def forward(self, z: torch.Tensor, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         self.extract_template(z)
