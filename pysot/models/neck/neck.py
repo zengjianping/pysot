@@ -43,7 +43,7 @@ class AdjustAllLayer(nn.Module):
                                             out_channels[i],
                                             center_size))
 
-    def forward0(self, features: Union[torch.Tensor, List[torch.Tensor]]):
+    def forward(self, features):
         if self.num == 1:
             return self.downsample(features)
         else:
@@ -53,7 +53,7 @@ class AdjustAllLayer(nn.Module):
                 out.append(adj_layer(features[i]))
             return out
 
-    def forward(self, features: torch.Tensor):
+    def forward1(self, features: torch.Tensor):
         return self.downsample(features)
 
     def forward2(self, features: torch.Tensor):

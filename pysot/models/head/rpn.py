@@ -110,7 +110,7 @@ class MultiRPN(RPN):
     def forward(self, z_fs, x_fs):
         cls = []
         loc = []
-        
+
         for idx, (z_f, x_f) in enumerate(zip(z_fs, x_fs), start=2):
             rpn = getattr(self, 'rpn'+str(idx))
             c, l = rpn(z_f, x_f)
@@ -120,7 +120,7 @@ class MultiRPN(RPN):
         if self.weighted:
             cls_weight = F.softmax(self.cls_weight, 0)
             loc_weight = F.softmax(self.loc_weight, 0)
-        
+
         if self.weighted:
             return weighted_avg(cls, cls_weight), weighted_avg(loc, loc_weight)
         else:
