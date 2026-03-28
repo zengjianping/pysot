@@ -191,16 +191,39 @@ class ResNet(nn.Module):
         p1 = self.layer1(x)
         p2 = self.layer2(p1)
         p3 = self.layer3(p2)
-        if True:
-            p4 = self.layer4(p3)
-            out = [x_, p1, p2, p3, p4]
-        else:
-            out = [x_, p1, p2, p3]
+        p4 = self.layer4(p3)
+        out = [x_, p1, p2, p3, p4]
         out = [out[i] for i in self.used_layers]
-        #if len(out) == 1:
-        #    return out[0]
-        #else:
-        #    return out
+        if len(out) == 1:
+            return out[0]
+        else:
+            return out
+
+    def forward1(self, x): # siamrpn
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x_ = self.relu(x)
+        x = self.maxpool(x_)
+
+        p1 = self.layer1(x)
+        p2 = self.layer2(p1)
+        p3 = self.layer3(p2)
+        p4 = self.layer4(p3)
+        out = [x_, p1, p2, p3, p4]
+        out = [out[i] for i in self.used_layers]
+        return out
+
+    def forward2(self, x): # siammask
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x_ = self.relu(x)
+        x = self.maxpool(x_)
+
+        p1 = self.layer1(x)
+        p2 = self.layer2(p1)
+        p3 = self.layer3(p2)
+        out = [x_, p1, p2, p3]
+        out = [out[i] for i in self.used_layers]
         return out
 
 
