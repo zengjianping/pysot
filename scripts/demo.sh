@@ -27,7 +27,7 @@ else
 fi
 
 video_path=""
-#video_path="demo/bag.avi"
+video_path="demo/bag.avi"
 #video_path="../pytracking/datas/videos/UavData/uav_20260330.mp4"
 
 python tools/demo.py \

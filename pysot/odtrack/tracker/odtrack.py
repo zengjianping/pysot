@@ -14,18 +14,20 @@ from ..utils.processing_utils import transform_image_to_crop
 
 class ODTrack(BaseTracker):
     def __init__(self, params):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.params = params
         network = build_odtrack(params.cfg, training=False)
         network.load_state_dict(torch.load(self.params.checkpoint, map_location='cpu')['net'], strict=True)
         self.cfg = params.cfg
-        self.network = network.cuda()
+        self.network = network
+        self.network = self.network.to(self.device)
         self.network.eval()
         self.preprocessor = Preprocessor()
         self.state = None
 
         self.feat_sz = self.cfg.TEST.SEARCH_SIZE // self.cfg.MODEL.BACKBONE.STRIDE
         # motion constrain
-        self.output_window = hann2d(torch.tensor([self.feat_sz, self.feat_sz]).long(), centered=True).cuda()
+        self.output_window = hann2d(torch.tensor([self.feat_sz, self.feat_sz]).long(), centered=True).to(self.device)
 
         # for debug
         params.debug = False
@@ -181,13 +183,14 @@ class ODTrack(BaseTracker):
         
         for idx in indexes:
             frames = self.memory_frames[idx]
-            if not frames.is_cuda:
-                frames = frames.cuda()
+            #if not frames.is_cuda:
+            #    frames = frames.cuda()
+            frames = frames.to(self.device)
             select_frames.append(frames)
             
             if self.cfg.MODEL.BACKBONE.CE_LOC:
                 box_mask_z = self.memory_masks[idx]
-                select_masks.append(box_mask_z.cuda())
+                select_masks.append(box_mask_z.to(self.device))
         
         if self.cfg.MODEL.BACKBONE.CE_LOC:
             return select_frames, torch.cat(select_masks, dim=1)
