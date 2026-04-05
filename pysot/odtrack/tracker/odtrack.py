@@ -2,18 +2,19 @@ import os, cv2
 import numpy as np
 import torch
 
-from .basetracker import BaseTracker
+from ...tracker.base_tracker import BaseTracker
 from .data_utils import Preprocessor
 from ..models import build_odtrack
 from ..utils.hann import hann2d
 from ..utils.processing_utils import sample_target
 from ..utils.box_ops import clip_box
 from ..utils.ce_utils import generate_mask_cond
+from ..utils.processing_utils import transform_image_to_crop
 
 
 class ODTrack(BaseTracker):
     def __init__(self, params):
-        super(ODTrack, self).__init__(params)
+        self.params = params
         network = build_odtrack(params.cfg, training=False)
         network.load_state_dict(torch.load(self.params.checkpoint, map_location='cpu')['net'], strict=True)
         self.cfg = params.cfg
@@ -27,6 +28,7 @@ class ODTrack(BaseTracker):
         self.output_window = hann2d(torch.tensor([self.feat_sz, self.feat_sz]).long(), centered=True).cuda()
 
         # for debug
+        params.debug = False
         self.debug = params.debug
         self.use_visdom = params.debug
         self.frame_id = 0
@@ -41,6 +43,12 @@ class ODTrack(BaseTracker):
         # for save boxes from all queries
         self.save_all_boxes = params.save_all_boxes
         self.z_dict1 = {}
+
+    def predicts_segmentation_mask(self):
+        return False
+
+    def init(self, image, bbox):
+        self.initialize(image, {'init_bbox': np.asarray(bbox)})
 
     def initialize(self, image, info: dict):
         # forward the template once
@@ -66,7 +74,7 @@ class ODTrack(BaseTracker):
             all_boxes_save = info['init_bbox'] * self.cfg.MODEL.NUM_OBJECT_QUERIES
             return {"all_boxes": all_boxes_save}
 
-    def track(self, image, info: dict = None):
+    def track(self, image):
         H, W, _ = image.shape
         self.frame_id += 1
         x_patch_arr, resize_factor, x_amask_arr = sample_target(image, self.state, self.params.search_factor,
@@ -92,7 +100,8 @@ class ODTrack(BaseTracker):
         # add hann windows
         pred_score_map = out_dict['score_map']
         response = self.output_window * pred_score_map
-        pred_boxes = self.network.box_head.cal_bbox(response, out_dict['size_map'], out_dict['offset_map'])
+        pred_boxes, best_score = self.network.box_head.cal_bbox(response, out_dict['size_map'],
+            out_dict['offset_map'], return_score=True)
         pred_boxes = pred_boxes.view(-1, 4)
         # Baseline: Take the mean of all pred boxes as the final result
         pred_box = (pred_boxes.mean(dim=0) * self.params.search_size / resize_factor).tolist()  # (cx, cy, w, h) [0,1]
@@ -125,15 +134,35 @@ class ODTrack(BaseTracker):
             save_path = os.path.join(self.save_dir, "%04d.jpg" % self.frame_id)
             cv2.imwrite(save_path, image_BGR)
 
-        if self.save_all_boxes:
+        if False and self.save_all_boxes:
             '''save all predictions'''
             all_boxes = self.map_box_back_batch(pred_boxes * self.params.search_size / resize_factor, resize_factor)
             all_boxes_save = all_boxes.view(-1).tolist()  # (4N, )
             return {"target_bbox": self.state,
                     "all_boxes": all_boxes_save}
-        else:
-            return {"target_bbox": self.state}
 
+        return {"bbox": self.state, 'best_score': best_score}
+
+    def transform_bbox_to_crop(self, box_in, resize_factor, device, box_extract=None, crop_type='template'):
+        # box_in: list [x1, y1, w, h], not normalized
+        # box_extract: same as box_in
+        # out bbox: Torch.tensor [1, 1, 4], x1y1wh, normalized
+        if crop_type == 'template':
+            crop_sz = torch.Tensor([self.params.template_size, self.params.template_size])
+        elif crop_type == 'search':
+            crop_sz = torch.Tensor([self.params.search_size, self.params.search_size])
+        else:
+            raise NotImplementedError
+
+        box_in = torch.tensor(box_in)
+        if box_extract is None:
+            box_extract = box_in
+        else:
+            box_extract = torch.tensor(box_extract)
+        template_bbox = transform_image_to_crop(box_in, box_extract, resize_factor, crop_sz, normalize=True)
+        template_bbox = template_bbox.view(1, 1, 4).to(device)
+
+        return template_bbox
     def select_memory_frames(self):
         num_segments = self.cfg.TEST.TEMPLATE_NUMBER
         cur_frame_idx = self.frame_id

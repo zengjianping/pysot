@@ -3,7 +3,7 @@ from ..utils.params import TrackerParams
 from .config import cfg, update_config_from_file
 
 
-def parameters(yaml_file: str, checkpoint_path: str):
+def get_parameters(yaml_file: str, checkpoint_path: str):
     params = TrackerParams()
     update_config_from_file(yaml_file)
     params.cfg = cfg

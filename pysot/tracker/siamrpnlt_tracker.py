@@ -7,8 +7,8 @@ from __future__ import unicode_literals
 
 import numpy as np
 
-from pysot.core.config import cfg
-from pysot.tracker.siamrpn_tracker import SiamRPNTracker
+from ..core.config import cfg
+from .siamrpn_tracker import SiamRPNTracker
 
 
 class SiamRPNLTTracker(SiamRPNTracker):

@@ -8,9 +8,9 @@ from __future__ import unicode_literals
 import cv2
 import numpy as np
 
-from pysot.core.config import cfg
-from pysot.utils.bbox import cxy_wh_2_rect
-from pysot.tracker.siamrpn_tracker import SiamRPNTracker
+from ..core.config import cfg
+from ..utils.bbox import cxy_wh_2_rect
+from .siamrpn_tracker import SiamRPNTracker
 
 
 class SiamMaskTracker(SiamRPNTracker):

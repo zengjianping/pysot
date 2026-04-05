@@ -8,9 +8,9 @@ from __future__ import unicode_literals
 import numpy as np
 import torch.nn.functional as F
 
-from pysot.core.config import cfg
-from pysot.utils.anchor import Anchors
-from pysot.tracker.base_tracker import SiameseTracker
+from ..core.config import cfg
+from ..utils.anchor import Anchors
+from .siamese_tracker import SiameseTracker
 
 
 class SiamRPNTracker(SiameseTracker):

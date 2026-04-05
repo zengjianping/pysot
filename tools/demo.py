@@ -12,17 +12,19 @@ import torch
 import numpy as np
 from glob import glob
 
-from pysot.core.config import cfg
-from pysot.models.model_builder import ModelBuilder
-from pysot.tracker.tracker_builder import build_tracker
+from pysot.tracker import TrackerFactory
 
 torch.set_num_threads(1)
 
-parser = argparse.ArgumentParser(description='tracking demo')
-parser.add_argument('--config', type=str, help='config file')
-parser.add_argument('--snapshot', type=str, help='model name')
-parser.add_argument('--video_name', default='', type=str, help='videos or image files')
-args = parser.parse_args()
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='tracking demo')
+    parser.add_argument('--tracker_type', type=str, help='tracker type')
+    parser.add_argument('--config_file', type=str, help='config file')
+    parser.add_argument('--model_path', type=str, help='model path')
+    parser.add_argument('--video_path', default='', type=str, help='videos or image files')
+    args = parser.parse_args()
+    return args
 
 
 def load_video_config(video_path):
@@ -62,20 +64,19 @@ def save_video_config(video_path, init_rect, start_time=0, scale_size=None):
 
 
 class VideoCapture(object):
-    def __init__(self, video_name):
+    def __init__(self, video_path):
         self.cap = None
         self.images = None
 
-        if not video_name:
+        if not video_path:
             cap = cv2.VideoCapture(0)
             for i in range(5):
                 cap.read()
             self.cap = cap
-        elif video_name.endswith('avi') or \
-            video_name.endswith('mp4'):
-            self.cap = cv2.VideoCapture(args.video_name)
+        elif video_path.endswith('avi') or video_path.endswith('mp4'):
+            self.cap = cv2.VideoCapture(video_path)
         else:
-            images = glob(os.path.join(video_name, '*.jp*'))
+            images = glob(os.path.join(video_path, '*.jp*'))
             self.images = sorted(images, key=lambda x: int(x.split('/')[-1].split('.')[0]))
             self.img_idx = 0
         
@@ -93,24 +94,14 @@ class VideoCapture(object):
 
 
 def main():
-    # load config
-    cfg.merge_from_file(args.config)
-    cfg.CUDA = torch.cuda.is_available() and cfg.CUDA
-    device = torch.device('cuda' if cfg.CUDA else 'cpu')
-
-    # create model
-    model = ModelBuilder()
-
-    # load model
-    model.load_state_dict(torch.load(args.snapshot,
-        map_location=lambda storage, loc: storage.cpu()))
-    model.eval().to(device)
+    args = parse_args()
 
     # build tracker
-    tracker = build_tracker(model)
+    tracker = TrackerFactory.create_instance(args.tracker_type, args.config_file, args.model_path)
 
     # 加载视频配置
-    video_config = load_video_config(args.video_name)
+    video_path = args.video_path
+    video_config = load_video_config(video_path)
     init_rect = None
     start_time = 0
     scale_size = None
@@ -125,9 +116,9 @@ def main():
     paused = True
     step_one = False
 
-    video = VideoCapture(args.video_name)
-    if args.video_name:
-        video_name = args.video_name.split('/')[-1].split('.')[0]
+    video = VideoCapture(video_path)
+    if video_path:
+        video_name = video_path.split('/')[-1].split('.')[0]
     else:
         video_name = 'webcam'
     cv2.namedWindow(video_name, cv2.WND_PROP_FULLSCREEN)
@@ -185,7 +176,8 @@ def main():
                             (0, 0, 255), 3)
 
             # 保存配置（无论是否从文件读取）
-            save_video_config(args.video_name, init_rect, start_time, scale_size)
+            save_video_config(video_path, init_rect, start_time, scale_size)
+
         else:
             outputs = tracker.track(frame)
             if 'polygon' in outputs:
@@ -201,6 +193,7 @@ def main():
                 cv2.rectangle(frame, (bbox[0], bbox[1]),
                               (bbox[0]+bbox[2], bbox[1]+bbox[3]),
                               (0, 255, 0), 3)
+
         cv2.imshow(video_name, frame)
 
 
