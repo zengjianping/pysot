@@ -13,7 +13,7 @@ from torch.nn.modules.transformer import _get_clones
 from pysot.models.backbone import get_backbone
 from pysot.models.head import get_rpn_head, get_mask_head, get_refine_head
 from pysot.models.neck import get_neck
-from pysot.odtrack.models.odtrack_model import ODTrackModel
+from pysot.odtrack.models import ODTrackModel
 
 
 class SiameseModel(nn.Module):
@@ -206,7 +206,15 @@ MODELS = {
     },
     "odtrack_base_fulldata_300ep": {
         "model_type": ODTrackModel,
-        "model_params": ODTrackModel.model_params,
+        "model_params": {
+            "model_type": "base"
+        }
+    },
+    "odtrack_large_fulldata_300ep": {
+        "model_type": ODTrackModel,
+        "model_params": {
+            "model_type": "large"
+        }
     }
 }
 

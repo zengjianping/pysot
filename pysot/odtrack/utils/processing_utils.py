@@ -100,9 +100,9 @@ def transform_image_to_crop(box_in: torch.Tensor, box_extract: torch.Tensor, res
 
     box_out = torch.cat((box_out_center - 0.5 * box_out_wh, box_out_wh))
     if normalize:
-        return box_out / crop_sz[0]
-    else:
-        return box_out
+        box_out = box_out / crop_sz[0]
+
+    return box_out
 
 
 def jittered_center_crop(frames, box_extract, box_gt, search_area_factor, output_sz, masks=None):

@@ -3,7 +3,7 @@
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 #tracker_type=siamese
-tracker_type=odtrack
+tracker_type=odtracker
 
 if [ $tracker_type == "siamese" ]; then
     model_name="siamrpn_alex_dwxcorr"
@@ -12,13 +12,20 @@ if [ $tracker_type == "siamese" ]; then
     #model_name="siamrpn_r50_l234_dwxcorr_otb"
     #model_name="siamrpn_r50_l234_dwxcorr_lt"
     #model_name="siamrpn_mobilev2_l234_dwxcorr"
-    #model_name="siammask_r50_l3"
+    model_name="siammask_r50_l3"
     config_file="experiments/${model_name}/config.yaml"
     model_path="datas/models/${model_name}/model.pth"
 
 elif [ $tracker_type == "odtrack" ]; then
     model_name="Base-Fulldata-300ep"
+    #model_name="Large-Fulldata-300ep"
     config_file="experiments/odtrack/${model_name}.yaml"
+    model_path="datas/models/odtrack/${model_name}/model.pth.tar"
+
+elif [ $tracker_type == "odtracker" ]; then
+    model_name="Base-Fulldata-300ep"
+    #model_name="Large-Fulldata-300ep"
+    config_file="experiments/odtrack/${model_name}.json"
     model_path="datas/models/odtrack/${model_name}/model.pth.tar"
 
 else

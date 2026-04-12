@@ -13,61 +13,118 @@ from .layers.vit import vit_base_patch16_224, vit_large_patch16_224
 from .layers.vit_ce import vit_large_patch16_224_ce, vit_base_patch16_224_ce
 
 
-class ODTrackModel(nn.Module):
-    model_params = {
-        "DATA": {
-            "MAX_SAMPLE_INTERVAL": 400,
-            "MEAN": [0.485, 0.456, 0.406],
-            "STD": [0.229, 0.224, 0.225],
-            "SEARCH": {
-                "CENTER_JITTER": 4.5,
-                "FACTOR": 5.0,
-                "SCALE_JITTER": 0.5,
-                "SIZE": 384,
-                "NUMBER": 2
-            },
-            "TEMPLATE": {
-                "CENTER_JITTER": 0,
-                "FACTOR": 2.0,
-                "SCALE_JITTER": 0,
-                "SIZE": 192,
-                "NUMBER": 3
-            }
+base_model_config = {
+    "DATA": {
+        "MAX_SAMPLE_INTERVAL": 400,
+        "MEAN": [0.485, 0.456, 0.406],
+        "STD": [0.229, 0.224, 0.225],
+        "SEARCH": {
+            "CENTER_JITTER": 4.5,
+            "FACTOR": 5.0,
+            "SCALE_JITTER": 0.5,
+            "SIZE": 384,
+            "NUMBER": 2
         },
-        "MODEL": {
-            "PRETRAIN_FILE": "mae_pretrain_vit_base.pth",
-            "EXTRA_MERGER": False,
-            "RETURN_INTER": False,
-            "RETURN_STAGES": [],
-            "BACKBONE": {
-                "TYPE": "vit_base_patch16_224_ce",
-                "STRIDE": 16,
-                "CE_LOC": [3, 6, 9],
-                "CE_KEEP_RATIO": [0.7, 0.7, 0.7],
-                "CE_TEMPLATE_RANGE": "CTR_POINT",  # choose between ALL, CTR_POINT, CTR_REC, GT_BOX
-                "ADD_CLS_TOKEN": True,             # use track_query mechanism
-                "ATTN_TYPE": "concat",             # Choose from [concat, separate]
-                "CAT_MODE": "direct",
-                "MID_PE": False,
-                "SEP_SEG": False,
-                "TOKEN_LEN": 1
-            },
-            "HEAD": {
-                "TYPE": "CENTER",
-                "NUM_CHANNELS": 256
-            }
-        },
-        "TRAIN": {
-            "BBOX_TASK": True,
-            "BACKBONE_MULTIPLIER": 0.1,
-            "DROP_PATH_RATE": 0.1
+        "TEMPLATE": {
+            "CENTER_JITTER": 0,
+            "FACTOR": 2.0,
+            "SCALE_JITTER": 0,
+            "SIZE": 192,
+            "NUMBER": 3
         }
+    },
+    "MODEL": {
+        "PRETRAIN_FILE": "mae_pretrain_vit_base.pth",
+        "EXTRA_MERGER": False,
+        "RETURN_INTER": False,
+        "RETURN_STAGES": [],
+        "BACKBONE": {
+            "TYPE": "vit_base_patch16_224_ce",
+            "STRIDE": 16,
+            "CE_LOC": [3, 6, 9],
+            "CE_KEEP_RATIO": [0.7, 0.7, 0.7],
+            "CE_TEMPLATE_RANGE": "CTR_POINT",  # choose between ALL, CTR_POINT, CTR_REC, GT_BOX
+            "ADD_CLS_TOKEN": True,             # use track_query mechanism
+            "ATTN_TYPE": "concat",             # Choose from [concat, separate]
+            "CAT_MODE": "direct",
+            "MID_PE": False,
+            "SEP_SEG": False,
+            "TOKEN_LEN": 1
+        },
+        "HEAD": {
+            "TYPE": "CENTER",
+            "NUM_CHANNELS": 256
+        }
+    },
+    "TRAIN": {
+        "BBOX_TASK": True,
+        "BACKBONE_MULTIPLIER": 0.1,
+        "DROP_PATH_RATE": 0.1
     }
-    
-    def __init__(self, model_params:dict = model_params):
+}
+
+large_model_config = {
+    "DATA": {
+        "MAX_SAMPLE_INTERVAL": 400,
+        "MEAN": [0.485, 0.456, 0.406],
+        "STD": [0.229, 0.224, 0.225],
+        "SEARCH": {
+            "CENTER_JITTER": 4.5,
+            "FACTOR": 5.0,
+            "SCALE_JITTER": 0.5,
+            "SIZE": 384,
+            "NUMBER": 2
+        },
+        "TEMPLATE": {
+            "CENTER_JITTER": 0,
+            "FACTOR": 2.0,
+            "SCALE_JITTER": 0,
+            "SIZE": 192,
+            "NUMBER": 3
+        }
+    },
+    "MODEL": {
+        "PRETRAIN_FILE": "mae_pretrain_vit_large.pth",
+        "EXTRA_MERGER": False,
+        "RETURN_INTER": False,
+        "RETURN_STAGES": [],
+        "BACKBONE": {
+            "TYPE": "vit_large_patch16_224_ce",
+            "STRIDE": 16,
+            "CE_LOC": [3, 6, 9],
+            "CE_KEEP_RATIO": [0.7, 0.7, 0.7],
+            "CE_TEMPLATE_RANGE": "CTR_POINT",  # choose between ALL, CTR_POINT, CTR_REC, GT_BOX
+            "ADD_CLS_TOKEN": True,             # use track_query mechanism
+            "ATTN_TYPE": "concat",             # Choose from [concat, separate]
+            "CAT_MODE": "direct",
+            "MID_PE": False,
+            "SEP_SEG": False,
+            "TOKEN_LEN": 1
+        },
+        "HEAD": {
+            "TYPE": "CENTER",
+            "NUM_CHANNELS": 256
+        }
+    },
+    "TRAIN": {
+        "BBOX_TASK": True,
+        "BACKBONE_MULTIPLIER": 0.1,
+        "DROP_PATH_RATE": 0.1
+    }
+}
+
+model_configs = {
+    "base": base_model_config,
+    "large": large_model_config
+}
+
+class ODTrackModel(nn.Module):
+    def __init__(self, model_params:dict):
         super(ODTrackModel, self).__init__()
 
-        cfg = edict(model_params)
+        model_type = model_params['model_type']
+        model_config = model_configs[model_type]
+        cfg = edict(model_config)
         pretrained = ''
 
         if cfg.MODEL.BACKBONE.TYPE == 'vit_base_patch16_224':

@@ -1,0 +1,12 @@
+{
+    "model_type": "large",
+    "backbone_stride": 16,
+    "feature_size": 24,
+    "search_size": 384,
+    "search_factor": 5.0,
+    "template_size": 192,
+    "template_factor": 2.0,
+    "use_ce_loc": true,
+    "template_number": 3,
+    "memory_threshold": 1000
+}

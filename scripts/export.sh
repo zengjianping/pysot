@@ -20,6 +20,9 @@ elif [ $tracker_type == "odtrack" ]; then
     model_name="odtrack_base_fulldata_300ep"
     snapshot="datas/models/odtrack/Base-Fulldata-300ep/model.pth.tar"
     output="datas/models/odtrack/Base-Fulldata-300ep/model.pt"
+    #model_name="odtrack_large_fulldata_300ep"
+    #snapshot="datas/models/odtrack/Large-Fulldata-300ep/model.pth.tar"
+    #output="datas/models/odtrack/Large-Fulldata-300ep/model.pt"
 
 else
     echo "Unsupported tracker type: ${tracker_type}"
