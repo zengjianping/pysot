@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.vision_transformer import resize_pos_embed
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from typing import Optional
 
 from .patch_embed import PatchEmbed
 from .utils import combine_tokens, recover_tokens
@@ -25,8 +26,8 @@ class BaseBackbone(nn.Module):
         self.pos_embed_z = None
         self.pos_embed_x = None
 
-        self.template_segment_pos_embed = None
-        self.search_segment_pos_embed = None
+        self.template_segment_pos_embed: Optional[nn.Parameter] = None
+        self.search_segment_pos_embed: Optional[nn.Parameter] = None
 
         self.return_inter = False
         self.return_stage = [2, 5, 8, 11]

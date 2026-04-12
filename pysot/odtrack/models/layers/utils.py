@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 
 
-def combine_tokens(template_tokens, search_tokens, mode='direct', return_res=False):
+def combine_tokens(template_tokens, search_tokens, mode:str='direct', return_res:bool=False):
     # [B, HW, C]
     len_t = template_tokens.shape[1]
     len_s = search_tokens.shape[1]
@@ -37,8 +37,8 @@ def combine_tokens(template_tokens, search_tokens, mode='direct', return_res=Fal
 
         # calculate new h and w, which may be useful for SwinT or others
         merged_h, merged_w = feat_size_s + Hc, feat_size_s
-        if return_res:
-            return merged_feature, merged_h, merged_w
+        #if return_res:
+        #    return merged_feature, merged_h, merged_w
 
     else:
         raise NotImplementedError
@@ -46,7 +46,7 @@ def combine_tokens(template_tokens, search_tokens, mode='direct', return_res=Fal
     return merged_feature
 
 
-def recover_tokens(merged_tokens, len_template_token, len_search_token, mode='direct'):
+def recover_tokens(merged_tokens:torch.Tensor, len_template_token:int, len_search_token:int, mode:str='direct'):
     if mode == 'direct':
         recovered_tokens = merged_tokens
     elif mode == 'template_central':

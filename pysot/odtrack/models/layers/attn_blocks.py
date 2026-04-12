@@ -1,13 +1,15 @@
 import math
 import torch
 import torch.nn as nn
+from typing import Tuple, Optional, Any
 from timm.models.layers import Mlp, DropPath, trunc_normal_, lecun_normal_
+import traceback
 
 from .attn import Attention
 
 
 def candidate_elimination(attn: torch.Tensor, tokens: torch.Tensor, lens_t: int, keep_ratio: float, global_index: torch.Tensor, 
-                          box_mask_z: torch.Tensor):
+        box_mask_z: Optional[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
     """
     Eliminate potential background candidates for computation reduction and noise cancellation.
     Args:
@@ -78,7 +80,7 @@ def candidate_elimination(attn: torch.Tensor, tokens: torch.Tensor, lens_t: int,
 class CEBlock(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, keep_ratio_search=1.0,):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, keep_ratio_search=1.0):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = Attention(dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
@@ -90,13 +92,15 @@ class CEBlock(nn.Module):
 
         self.keep_ratio_search = keep_ratio_search
 
-    def forward(self, x, global_index_template, global_index_search, mask=None, ce_template_mask=None, keep_ratio_search=None, 
-                add_cls_token=False, query_len=1):
+    def forward(self, x:torch.Tensor, global_index_template:torch.Tensor, global_index_search:torch.Tensor,
+            mask:Optional[torch.Tensor]=None, ce_template_mask:Optional[torch.Tensor]=None, 
+            keep_ratio_search:Optional[float]=None, add_cls_token:bool=False, query_len:Optional[int]=None
+            ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], torch.Tensor]:
         x_attn, attn = self.attn(self.norm1(x), mask, True)
         x = x + self.drop_path(x_attn)
         lens_t = global_index_template.shape[1]
 
-        removed_index_search = None
+        removed_index_search:Optional[torch.Tensor] = None
         if self.keep_ratio_search < 1 and (keep_ratio_search is None or keep_ratio_search < 1):
             keep_ratio_search = self.keep_ratio_search if keep_ratio_search is None else keep_ratio_search
             if add_cls_token:
@@ -108,10 +112,11 @@ class CEBlock(nn.Module):
                                                                                      ce_template_mask)
                 x = torch.cat([tokens, x], dim=1)  # (B, query_len+z+x, 768)
             else:
-                x, global_index_search, removed_index_search = candidate_elimination(attn, x, lens_t, keep_ratio_search, global_index_search, ce_template_mask)
+                x, global_index_search, removed_index_search = candidate_elimination(attn, x, lens_t, keep_ratio_search,
+                                                                                     global_index_search, ce_template_mask)
 
         x = x + self.drop_path(self.mlp(self.norm2(x)))
-        return x, global_index_template, global_index_search, removed_index_search, attn
+        return x, global_index_search, removed_index_search, attn
 
 
 class Block(nn.Module):
@@ -128,6 +133,7 @@ class Block(nn.Module):
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
     def forward(self, x, mask=None):
-        x = x + self.drop_path(self.attn(self.norm1(x), mask))
+        x_attn, attn = self.attn(self.norm1(x), mask, True)
+        x = x + x_attn
         x = x + self.drop_path(self.mlp(self.norm2(x)))
         return x

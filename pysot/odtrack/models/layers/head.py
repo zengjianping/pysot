@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-from typing import Tuple
+from typing import Tuple, Optional
 from .frozen_bn import FrozenBatchNorm2d
 
 
@@ -112,7 +112,7 @@ class Corner_Predictor(nn.Module):
             return exp_x, exp_y
 
 
-class CenterPredictor(nn.Module, ):
+class CenterPredictor(nn.Module):
     def __init__(self, inplanes=64, channel=256, feat_sz=20, stride=16, freeze_bn=False):
         super(CenterPredictor, self).__init__()
         self.input_dim = channel
@@ -145,7 +145,7 @@ class CenterPredictor(nn.Module, ):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def forward(self, x, gt_score_map=None):
+    def forward(self, x: torch.Tensor, gt_score_map: Optional[torch.Tensor] = None):
         """ Forward pass with input x. x.shape:(B, C, H, W) """
         score_map_ctr, size_map, offset_map = self.get_score_map(x)
 
@@ -158,7 +158,7 @@ class CenterPredictor(nn.Module, ):
         return score_map_ctr, bbox, size_map, offset_map
     
             
-    def cal_bbox(self, score_map_ctr, size_map, offset_map, return_score=False):
+    def cal_bbox(self, score_map_ctr, size_map, offset_map):
         max_score, idx = torch.max(score_map_ctr.flatten(1), dim=1, keepdim=True)
         idx_y = idx // self.feat_sz
         idx_x = idx % self.feat_sz
@@ -174,16 +174,9 @@ class CenterPredictor(nn.Module, ):
                           (idx_y.to(torch.float) + offset[:, 1:]) / self.feat_sz,
                           size.squeeze(-1)], dim=1)
 
-        if return_score:
-            return bbox, max_score
         return bbox
 
     def get_score_map(self, x):
-
-        def _sigmoid(x):
-            y = torch.clamp(x.sigmoid_(), min=1e-4, max=1 - 1e-4)
-            return y
-
         # ctr branch
         x_ctr1 = self.conv1_ctr(x)
         x_ctr2 = self.conv2_ctr(x_ctr1)
@@ -205,6 +198,10 @@ class CenterPredictor(nn.Module, ):
         x_size4 = self.conv4_size(x_size3)
         score_map_size = self.conv5_size(x_size4)
         return _sigmoid(score_map_ctr), _sigmoid(score_map_size), score_map_offset
+
+def _sigmoid(x):
+    y = torch.clamp(x.sigmoid_(), min=1e-4, max=1 - 1e-4)
+    return y
 
 
 class MLP(nn.Module):
@@ -246,7 +243,8 @@ def build_box_head(cfg, hidden_dim):
     if cfg.MODEL.HEAD.TYPE == "MLP":
         mlp_head = MLP(hidden_dim, hidden_dim, 4, 3)  # dim_in, dim_hidden, dim_out, 3 layers
         return mlp_head
-    elif "CORNER" in cfg.MODEL.HEAD.TYPE:
+
+    elif cfg.MODEL.HEAD.TYPE == "CORNER":
         feat_sz = int(cfg.DATA.SEARCH.SIZE / stride)
         channel = getattr(cfg.MODEL, "NUM_CHANNELS", 256)
         print("head channel: %d" % channel)
@@ -256,6 +254,7 @@ def build_box_head(cfg, hidden_dim):
         else:
             raise ValueError()
         return corner_head
+
     elif cfg.MODEL.HEAD.TYPE == "CENTER":
         in_channel = hidden_dim
         out_channel = cfg.MODEL.HEAD.NUM_CHANNELS
@@ -263,5 +262,7 @@ def build_box_head(cfg, hidden_dim):
         center_head = CenterPredictor(inplanes=in_channel, channel=out_channel,
                                       feat_sz=feat_sz, stride=stride)
         return center_head
+
     else:
-        raise ValueError("HEAD TYPE %s is not supported." % cfg.MODEL.HEAD_TYPE)
+        raise ValueError("HEAD TYPE %s is not supported." % cfg.MODEL.HEAD.TYPE)
+

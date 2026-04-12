@@ -32,7 +32,7 @@ class TrackerFactory(object):
 
         elif track_type == 'odtrack':
             from ..odtrack.tracker import build_tracker
-            tracker = build_tracker(config_file, model_path)
+            tracker = build_tracker(config_file, model_path, mode=1)
             return tracker
 
         else:

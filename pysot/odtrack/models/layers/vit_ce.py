@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import to_2tuple
+from typing import List, Optional, Dict, Union
 
 from .patch_embed import PatchEmbed
 from .vit import VisionTransformer
@@ -89,15 +90,20 @@ class VisionTransformerCE(VisionTransformer):
                     keep_ratio_search=ce_keep_ratio_i)
             )
 
-        self.blocks = nn.Sequential(*blocks)
+        #self.blocks = nn.Sequential(*blocks)
+        self.blocks = nn.ModuleList(blocks)
         self.norm = norm_layer(embed_dim)
 
         self.init_weights(weight_init)
 
-    def forward_features(self, z, x, mask_z=None, mask_x=None,
-                         ce_template_mask=None, ce_keep_rate=None,
-                         return_last_attn=False, track_query=None,
-                         token_type="add", token_len=1
+    def forward_features(self, z:List[torch.Tensor], x:torch.Tensor, 
+                         mask_z:Optional[torch.Tensor]=None, 
+                         mask_x:Optional[torch.Tensor]=None,
+                         ce_template_mask:Optional[torch.Tensor]=None, 
+                         ce_keep_rate:Optional[float]=None,
+                         return_last_attn:bool=False, 
+                         track_query:Optional[torch.Tensor]=None,
+                         token_type:str="add", token_len:int=1
                          ):
         B, H, W = x.shape[0], x.shape[2], x.shape[3]
 
@@ -120,6 +126,9 @@ class VisionTransformerCE(VisionTransformer):
             mask_x = combine_tokens(mask_z, mask_x, mode=self.cat_mode)
             mask_x = mask_x.squeeze(-1)
 
+        query:Optional[torch.Tensor] = None
+        query_len:Optional[int] = None
+
         if self.add_cls_token:
             if token_type == "concat":
                 if track_query is None:
@@ -131,12 +140,14 @@ class VisionTransformerCE(VisionTransformer):
             elif token_type == "add":
                 new_query = self.cls_token.expand(B, token_len, -1)  # copy B times
                 query = new_query if track_query is None else track_query + new_query
+            else:
+                raise NotImplementedError(f"Unsupported token_type: {token_type}")
             query = query + self.cls_pos_embed
         
         z = z + self.pos_embed_z
         x = x + self.pos_embed_x
 
-        if self.add_sep_seg:
+        if self.search_segment_pos_embed is not None and self.template_segment_pos_embed is not None:
             x = x + self.search_segment_pos_embed
             z = z + self.template_segment_pos_embed
 
@@ -148,7 +159,7 @@ class VisionTransformerCE(VisionTransformer):
         lens_x = x.shape[1]  # HW
 
         x = combine_tokens(z, x, mode=self.cat_mode)  # (B, z+x, 768)
-        if self.add_cls_token:
+        if query is not None:
             x = torch.cat([query, x], dim=1)     # (B, 1+z+x, 768)
             query_len = query.size(1)
         x = self.pos_drop(x)
@@ -160,22 +171,17 @@ class VisionTransformerCE(VisionTransformer):
         
         removed_indexes_s = []
         for i, blk in enumerate(self.blocks):
-            if self.add_cls_token:
-                x, global_index_t, global_index_s, removed_index_s, attn = \
-                    blk(x, global_index_t, global_index_s, mask_x, ce_template_mask, ce_keep_rate, 
-                        add_cls_token=self.add_cls_token, query_len=query_len)
-            else:
-                x, global_index_t, global_index_s, removed_index_s, attn = \
-                    blk(x, global_index_t, global_index_s, mask_x, ce_template_mask, ce_keep_rate, add_cls_token=self.add_cls_token)
-                
-            if self.ce_loc is not None and i in self.ce_loc:
+            x, global_index_s, removed_index_s, attn = \
+                blk(x, global_index_t, global_index_s, mask_x, ce_template_mask, ce_keep_rate, 
+                    add_cls_token=self.add_cls_token, query_len=query_len)                
+            if self.ce_loc is not None and i in self.ce_loc and removed_index_s is not None:
                 removed_indexes_s.append(removed_index_s)
 
         x = self.norm(x)
         lens_x_new = global_index_s.shape[1]
         lens_z_new = global_index_t.shape[1]
 
-        if self.add_cls_token:
+        if query_len is not None:
             query = x[:, :query_len]
             z = x[:, query_len:lens_z_new+query_len]
             x = x[:, lens_z_new+query_len:]
@@ -198,19 +204,20 @@ class VisionTransformerCE(VisionTransformer):
         x = recover_tokens(x, lens_z_new, lens_x, mode=self.cat_mode)
 
         # re-concatenate with the template, which may be further used by other modules
-        x = torch.cat([query, z, x], dim=1)
+        if query is not None:
+            x = torch.cat([query, z, x], dim=1)
 
         # aux_dict = {}
-        aux_dict = {
+        aux_dict: Dict[str, Union[torch.Tensor, List[torch.Tensor]]] = {
             "attn": attn,
             "removed_indexes_s": removed_indexes_s,  # used for visualization
         }
 
         return x, aux_dict
 
-    def forward(self, z, x, ce_template_mask=None, ce_keep_rate=None,
-                tnc_keep_rate=None, return_last_attn=False, track_query=None, 
-                token_type="add", token_len=1):
+    def forward(self, z:List[torch.Tensor], x:torch.Tensor, ce_template_mask:Optional[torch.Tensor]=None, ce_keep_rate:Optional[float]=None,
+                tnc_keep_rate:Optional[float]=None, return_last_attn:bool=False, track_query:Optional[torch.Tensor]=None,
+                token_type:str="add", token_len:int=1):
         x, aux_dict = self.forward_features(z, x, ce_template_mask=ce_template_mask, ce_keep_rate=ce_keep_rate,
                                             track_query=track_query, token_type=token_type, token_len=token_len)
         return x, aux_dict

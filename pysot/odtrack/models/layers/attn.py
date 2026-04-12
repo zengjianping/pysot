@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import trunc_normal_
+from typing import Optional, Tuple
 
 from .rpe import generate_2d_concatenated_self_attention_relative_positional_encoding_index
 
@@ -30,7 +31,8 @@ class Attention(nn.Module):
                                                                           relative_position_index.max() + 1)))
             trunc_normal_(self.relative_position_bias_table, std=0.02)
 
-    def forward(self, x, mask=None, return_attention=False):
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None, 
+            return_attention: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
         # x: B, N, C
         # mask: [B, N, ] torch.bool
         B, N, C = x.shape
@@ -39,9 +41,9 @@ class Attention(nn.Module):
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
 
-        if self.rpe:
-            relative_position_bias = self.relative_position_bias_table[:, self.relative_position_index].unsqueeze(0)
-            attn += relative_position_bias
+        #if self.rpe:
+        #    relative_position_bias = self.relative_position_bias_table[:, self.relative_position_index].unsqueeze(0)
+        #    attn += relative_position_bias
 
         if mask is not None:
             attn = attn.masked_fill(mask.unsqueeze(1).unsqueeze(2), float('-inf'),)
@@ -53,10 +55,11 @@ class Attention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
 
-        if return_attention:
-            return x, attn
-        else:
-            return x
+        #if return_attention:
+        #    return x, attn
+        #else:
+        #    return x
+        return x, attn
 
 
 class Attention_talking_head(nn.Module):

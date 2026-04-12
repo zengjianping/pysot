@@ -13,6 +13,7 @@ import numpy as np
 from glob import glob
 
 from pysot.tracker import TrackerFactory
+from pysot.core.config import cfg
 
 torch.set_num_threads(1)
 

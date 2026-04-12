@@ -2,7 +2,7 @@
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
-tracker_type=siamese
+#tracker_type=siamese
 tracker_type=odtrack
 
 if [ $tracker_type == "siamese" ]; then

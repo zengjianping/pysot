@@ -3,25 +3,27 @@ import argparse
 import torch
 import numpy as np
 from glob import glob
-from typing import Tuple, List, Optional
+from easydict import EasyDict as edict
+from typing import Tuple, List, Dict, Optional, Union
 
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.modules.transformer import _get_clones
 
-from pysot.core.config import cfg
 from pysot.models.backbone import get_backbone
 from pysot.models.head import get_rpn_head, get_mask_head, get_refine_head
 from pysot.models.neck import get_neck
+from pysot.odtrack.models.odtrack_model import ODTrackModel
 
 
-class TrackerModel(nn.Module):
+class SiameseModel(nn.Module):
     def __init__(self, 
             backbone_type=None, backbone_kwargs=None,
             rpn_type=None, rpn_kwargs=None,
             neck_type=None, neck_kwargs=None,
             mask_type=None, mask_kwargs=None,
             refine_type=None, refine_kwargs=None):
-        super(TrackerModel, self).__init__()
+        super(SiameseModel, self).__init__()
         
         self.neck = None
         self.mask_head = None
@@ -69,7 +71,7 @@ class TrackerModel(nn.Module):
         return self.refine_head(self.xf, self.mask_corr_feature, pos)
 
 
-class DaSiamRPNModel(TrackerModel):
+class DaSiamRPNModel(SiameseModel):
     def __init__(self, model_params:dict):
         super(DaSiamRPNModel, self).__init__(**model_params)
 
@@ -86,7 +88,7 @@ class DaSiamRPNModel(TrackerModel):
         return self.track(x)
 
 
-class SiamRPNppModel(TrackerModel):
+class SiamRPNppModel(SiameseModel):
     def __init__(self, model_params:dict):
         super(SiamRPNppModel, self).__init__(**model_params)
 
@@ -103,7 +105,7 @@ class SiamRPNppModel(TrackerModel):
         return self.track(x)
 
 
-class SiamMaskModel(TrackerModel):
+class SiamMaskModel(SiameseModel):
     def __init__(self, model_params:dict):
         super(SiamMaskModel, self).__init__(**model_params)
 
@@ -201,6 +203,10 @@ MODELS = {
             'refine_type': 'Refine',
             'refine_kwargs': {}
         }
+    },
+    "odtrack_base_fulldata_300ep": {
+        "model_type": ODTrackModel,
+        "model_params": ODTrackModel.model_params,
     }
 }
 
@@ -215,7 +221,9 @@ def export(model_name: str, weights_path: str, output_path: str, device: str = "
     # load model
     if weights_path:
         state = torch.load(weights_path, map_location="cpu")
-        if "state_dict" in state:
+        if "net" in state:
+            state = state["net"]
+        elif "state_dict" in state:
             state = state["state_dict"]
         print("Original state dict keys:")
         for k in state.keys():
@@ -228,15 +236,22 @@ def export(model_name: str, weights_path: str, output_path: str, device: str = "
 
     model = model.to(device).eval()
 
-    z = torch.zeros(1, 3, 127, 127, device=device)
-    x = torch.zeros(1, 3, 255, 255, device=device)
-    with torch.no_grad():
-        model.extract_template(z)
-        out = model.track(x)
-        if isinstance(out, tuple):
-            print(f"cls shape: {out[0].shape}, loc shape: {out[1].shape}")
-        else:
-            print(f"score map shape: {out.shape}")
+    if isinstance(model, ODTrackModel):
+        z = [torch.zeros(1, 3, 192, 192, device=device)] * 4
+        x = torch.zeros(1, 3, 384, 384, device=device)
+        with torch.no_grad():
+            out = model(z, x)
+            print(f"model output: {out.keys()}")
+    else:
+        z = torch.zeros(1, 3, 127, 127, device=device)
+        x = torch.zeros(1, 3, 255, 255, device=device)
+        with torch.no_grad():
+            model.extract_template(z)
+            out = model.track(x)
+            if isinstance(out, tuple):
+                print(f"cls shape: {out[0].shape}, loc shape: {out[1].shape}")
+            else:
+                print(f"score map shape: {out.shape}")
 
     #scripted = torch.jit.trace(model, example_input)
     scripted = torch.jit.script(model)

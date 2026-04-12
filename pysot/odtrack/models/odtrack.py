@@ -44,34 +44,28 @@ class ODTrack(nn.Module):
                 ce_keep_rate=None,
                 return_last_attn=False,
                 ):
-        assert isinstance(search, list), "The type of search is not List"
-
-        out_dict = []
-        for i in range(len(search)):
-            x, aux_dict = self.backbone(z=template.copy(), x=search[i],
-                                        ce_template_mask=ce_template_mask, ce_keep_rate=ce_keep_rate,
-                                        return_last_attn=return_last_attn, track_query=self.track_query, token_len=self.token_len)
-            feat_last = x
-            if isinstance(x, list):
-                feat_last = x[-1]
-                
-            enc_opt = feat_last[:, -self.feat_len_s:]  # encoder output for the search region (B, HW, C)
-            if self.backbone.add_cls_token:
-                self.track_query = (x[:, :self.token_len].clone()).detach() # stop grad  (B, N, C)
-                
-            att = torch.matmul(enc_opt, x[:, :1].transpose(1, 2))  # (B, HW, N)
-            opt = (enc_opt.unsqueeze(-1) * att.unsqueeze(-2)).permute((0, 3, 2, 1)).contiguous()  # (B, HW, C, N) --> (B, N, C, HW)
+        x, aux_dict = self.backbone(z=template.copy(), x=search,
+                                    ce_template_mask=ce_template_mask, ce_keep_rate=ce_keep_rate,
+                                    return_last_attn=return_last_attn, track_query=self.track_query, token_len=self.token_len)
+        feat_last = x
+        if isinstance(x, list):
+            feat_last = x[-1]
             
-            # Forward head
-            out = self.forward_head(opt, None)
-
-            out.update(aux_dict)
-            out['backbone_feat'] = x
+        enc_opt = feat_last[:, -self.feat_len_s:]  # encoder output for the search region (B, HW, C)
+        if self.backbone.add_cls_token:
+            self.track_query = (x[:, :self.token_len].clone()).detach() # stop grad  (B, N, C)
             
-            out_dict.append(out)
-            
-        return out_dict
+        att = torch.matmul(enc_opt, x[:, :1].transpose(1, 2))  # (B, HW, N)
+        opt = (enc_opt.unsqueeze(-1) * att.unsqueeze(-2)).permute((0, 3, 2, 1)).contiguous()  # (B, HW, C, N) --> (B, N, C, HW)
+        
+        # Forward head
+        out = self.forward_head(opt, None)
 
+        out.update(aux_dict)
+        out['backbone_feat'] = x
+        
+        return out
+            
     def forward_head(self, opt, gt_score_map=None):
         """
         enc_opt: output embeddings of the backbone, it can be (HW1+HW2, B, C) or (HW2, B, C)
@@ -108,7 +102,7 @@ class ODTrack(nn.Module):
             raise NotImplementedError
 
 
-def build_odtrack(cfg, training=True):
+def build_odtrack(cfg, training=False):
     current_dir = os.path.dirname(os.path.abspath(__file__))  # This is your Project Root
     pretrained_path = os.path.join(current_dir, '../../../pretrained_networks')
     if cfg.MODEL.PRETRAIN_FILE and ('OSTrack' not in cfg.MODEL.PRETRAIN_FILE) and training:
