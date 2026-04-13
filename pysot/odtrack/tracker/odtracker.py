@@ -89,18 +89,19 @@ def generate_mask_cond(bs, device, template_size, stride):
 
     return box_mask_z
 
+""" Transform the box coordinates from the original image coordinates to the coordinates of the cropped image
+args:
+    box_in - the box for which the coordinates are to be transformed
+    box_extract - the box about which the image crop has been extracted.
+    resize_factor - the ratio between the original image scale and the scale of the image crop
+    crop_sz - size of the cropped image
+
+returns:
+    torch.Tensor - transformed coordinates of box_in
+"""
+"""
 def transform_image_to_crop(box_in: torch.Tensor, box_extract: torch.Tensor, resize_factor: float,
                             crop_sz: torch.Tensor, normalize=False) -> torch.Tensor:
-    """ Transform the box coordinates from the original image coordinates to the coordinates of the cropped image
-    args:
-        box_in - the box for which the coordinates are to be transformed
-        box_extract - the box about which the image crop has been extracted.
-        resize_factor - the ratio between the original image scale and the scale of the image crop
-        crop_sz - size of the cropped image
-
-    returns:
-        torch.Tensor - transformed coordinates of box_in
-    """
     box_extract_center = box_extract[0:2] + 0.5 * box_extract[2:4]
 
     box_in_center = box_in[0:2] + 0.5 * box_in[2:4]
@@ -113,7 +114,7 @@ def transform_image_to_crop(box_in: torch.Tensor, box_extract: torch.Tensor, res
         box_out = box_out / crop_sz[0]
 
     return box_out
-
+"""
 
 def sample_target(im, target_bb, search_area_factor, output_sz=None, mask=None):
     """ Extracts a square crop centered at target_bb box, of area search_area_factor^2 times target_bb area
@@ -251,8 +252,7 @@ class ODTracker(BaseTracker):
         # add hann windows
         pred_score_map = out_dict['score_map']
         response = self.output_window * pred_score_map
-        pred_boxes, best_score = self.cal_bbox(response, out_dict['size_map'],
-            out_dict['offset_map'], return_score=True)
+        pred_boxes, best_score = self.cal_bbox(response, out_dict['size_map'], out_dict['offset_map'])
         pred_boxes = pred_boxes.view(-1, 4)
         # Baseline: Take the mean of all pred boxes as the final result
         pred_box = (pred_boxes.mean(dim=0) * self.params.search_size / resize_factor).tolist()  # (cx, cy, w, h) [0,1]
@@ -277,7 +277,7 @@ class ODTracker(BaseTracker):
 
         return {"bbox": self.state, 'best_score': best_score}
 
-    def cal_bbox(self, score_map_ctr, size_map, offset_map, return_score=False):
+    def cal_bbox(self, score_map_ctr, size_map, offset_map):
         feat_sz = self.feat_sz
         max_score, idx = torch.max(score_map_ctr.flatten(1), dim=1, keepdim=True)
         idx_y = idx // feat_sz
@@ -294,10 +294,9 @@ class ODTracker(BaseTracker):
                           (idx_y.to(torch.float) + offset[:, 1:]) / self.feat_sz,
                           size.squeeze(-1)], dim=1)
 
-        if return_score:
-            return bbox, max_score
-        return bbox
+        return bbox, max_score
 
+    """
     def transform_bbox_to_crop(self, box_in, resize_factor, device, box_extract=None, crop_type='template'):
         # box_in: list [x1, y1, w, h], not normalized
         # box_extract: same as box_in
@@ -318,6 +317,7 @@ class ODTracker(BaseTracker):
         template_bbox = template_bbox.view(1, 1, 4).to(device)
 
         return template_bbox
+    """
 
     def select_memory_frames(self):
         num_segments = self.params.template_number
@@ -346,11 +346,9 @@ class ODTracker(BaseTracker):
                 box_mask_z = self.memory_masks[idx]
                 select_masks.append(box_mask_z.to(self.device))
         
-        if self.params.use_ce_loc:
-            return select_frames, torch.cat(select_masks, dim=1)
-        else:
-            return select_frames, None
-    
+        box_masks = torch.stack(select_masks) if self.params.use_ce_loc else None
+        return select_frames, box_masks
+
     def map_box_back(self, pred_box: list, resize_factor: float):
         cx_prev, cy_prev = self.state[0] + 0.5 * self.state[2], self.state[1] + 0.5 * self.state[3]
         cx, cy, w, h = pred_box
