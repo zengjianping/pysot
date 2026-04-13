@@ -114,7 +114,7 @@ def main():
         print(f"Loaded config: init_rect={init_rect}, start_time={start_time}, scale_size={scale_size}")
 
     first_frame = True
-    paused = True
+    paused = False
     step_one = False
 
     video = VideoCapture(video_path)
@@ -181,6 +181,7 @@ def main():
 
         else:
             outputs = tracker.track(frame)
+            print(f"Tracking outputs: {outputs}")
             if 'polygon' in outputs:
                 polygon = np.array(outputs['polygon']).astype(np.int32)
                 cv2.polylines(frame, [polygon.reshape((-1, 1, 2))],
