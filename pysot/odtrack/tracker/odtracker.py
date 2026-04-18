@@ -129,7 +129,7 @@ def sample_target(im, target_bb, search_area_factor, output_sz=None, mask=None):
         cv image - extracted crop
         float - the factor by which the crop has been resized to make the crop size equal output_size
     """
-    if not isinstance(target_bb, list):
+    if not isinstance(target_bb, (list, tuple)):
         x, y, w, h = target_bb.tolist()
     else:
         x, y, w, h = target_bb
