@@ -114,7 +114,7 @@ def main():
         print(f"Loaded config: init_rect={init_rect}, start_time={start_time}, scale_size={scale_size}")
 
     first_frame = True
-    paused = False
+    paused = True
     step_one = False
 
     video = VideoCapture(video_path)

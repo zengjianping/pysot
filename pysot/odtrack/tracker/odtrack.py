@@ -215,11 +215,11 @@ class ODTrack(BaseTracker):
                 box_mask_z = self.memory_masks[idx]
                 select_masks.append(box_mask_z.to(self.device))
         
+        box_masks = None
         if self.cfg.MODEL.BACKBONE.CE_LOC:
-            return select_frames, torch.cat(select_masks, dim=1)
-        else:
-            return select_frames, None
-    
+            box_masks = torch.cat(select_masks, dim=1)
+        return select_frames, box_masks
+
     def map_box_back(self, pred_box: list, resize_factor: float):
         cx_prev, cy_prev = self.state[0] + 0.5 * self.state[2], self.state[1] + 0.5 * self.state[3]
         cx, cy, w, h = pred_box

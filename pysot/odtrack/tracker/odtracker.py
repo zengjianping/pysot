@@ -290,9 +290,12 @@ class ODTracker(BaseTracker):
         # bbox = torch.cat([idx_x - size[:, 0] / 2, idx_y - size[:, 1] / 2,
         #                   idx_x + size[:, 0] / 2, idx_y + size[:, 1] / 2], dim=1) / self.feat_sz
         # cx, cy, w, h
-        bbox = torch.cat([(idx_x.to(torch.float) + offset[:, :1]) / self.feat_sz,
-                          (idx_y.to(torch.float) + offset[:, 1:]) / self.feat_sz,
-                          size.squeeze(-1)], dim=1)
+        cx = (idx_x.to(torch.float) + offset[:, :1]) / self.feat_sz
+        cy = (idx_y.to(torch.float) + offset[:, 1:]) / self.feat_sz
+        bbox = torch.cat([cx, cy, size.squeeze(-1)], dim=1)
+
+        #print(feat_sz, idx_x.item(), idx_y.item(), offset[0][0].item(), offset[0][1].item(),
+        #      cx.item(), cy.item(), size[0][0].item(), size[0][1].item())
 
         return bbox, max_score
 
@@ -346,7 +349,7 @@ class ODTracker(BaseTracker):
                 box_mask_z = self.memory_masks[idx]
                 select_masks.append(box_mask_z.to(self.device))
         
-        box_masks = torch.stack(select_masks) if self.params.use_ce_loc else None
+        box_masks = torch.cat(select_masks, dim=1) if self.params.use_ce_loc else None
         return select_frames, box_masks
 
     def map_box_back(self, pred_box: list, resize_factor: float):
