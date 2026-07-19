@@ -58,6 +58,7 @@ def export_onnx(model, model_name: str, output_path: str, device: str = "cuda"):
             "template": {0: "batch"},
             "search": {0: "batch"}
         }
+        dynamic_axes = None
         example_inputs = (z, x)
 
     print(f"Exporting ONNX model to {output_path}")
