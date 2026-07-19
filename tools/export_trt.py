@@ -82,10 +82,12 @@ def build_engine_from_onnx_python(onnx_path: str, engine_path: str,
                                   fp16: bool = False, int8: bool = False,
                                   max_batch_size: int = 1,
                                   workspace_size: int = 2 << 30):
-    """Build TensorRT engine from ONNX file using Python API"""
+    """Build TensorRT engine from ONNX file using Python API (TensorRT 10.x compatible)"""
 
     if not TRT_AVAILABLE:
         raise RuntimeError("TensorRT Python API is not available")
+
+    print(f"TensorRT version: {trt.__version__}")
 
     logger = TRTLogger()
     builder = trt.Builder(logger)
@@ -101,8 +103,10 @@ def build_engine_from_onnx_python(onnx_path: str, engine_path: str,
                 print(parser.get_error(error))
             return None
 
-    # Build engine
+    # Build engine config
     config = builder.create_builder_config()
+
+    # TensorRT 10.x: Use memory_pool_limit instead of max_workspace_size
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace_size)
 
     if fp16:
@@ -114,7 +118,7 @@ def build_engine_from_onnx_python(onnx_path: str, engine_path: str,
         config.set_flag(trt.BuilderFlag.INT8)
         # Note: INT8 requires calibration data, which is not implemented here
 
-    # Build optimization profile
+    # Build optimization profile for dynamic shapes
     profile = builder.create_optimization_profile()
 
     for i in range(network.num_inputs):
@@ -134,6 +138,8 @@ def build_engine_from_onnx_python(onnx_path: str, engine_path: str,
     config.add_optimization_profile(profile)
 
     print("Building TensorRT engine... This may take a while.")
+
+    # TensorRT 10.x: build_serialized_network returns bytes directly
     serialized_engine = builder.build_serialized_network(network, config)
 
     if serialized_engine is None:
@@ -153,7 +159,7 @@ def build_engine_from_onnx_trtexec(onnx_path: str, engine_path: str,
                                    fp16: bool = False, int8: bool = False,
                                    max_batch_size: int = 1,
                                    workspace_size: int = 2 << 30):
-    """Build TensorRT engine from ONNX file using trtexec command line tool"""
+    """Build TensorRT engine from ONNX file using trtexec command line tool (TensorRT 10.x)"""
 
     # Check if trtexec is available
     try:
@@ -162,11 +168,12 @@ def build_engine_from_onnx_trtexec(onnx_path: str, engine_path: str,
         raise RuntimeError("trtexec not found. Please ensure TensorRT is installed and trtexec is in PATH")
 
     # Build trtexec command
+    # TensorRT 10.x uses --memPoolSize instead of --workspace
     cmd = [
         "trtexec",
         f"--onnx={onnx_path}",
         f"--saveEngine={engine_path}",
-        f"--workspace={workspace_size}",
+        f"--memPoolSize=workspace:{workspace_size}",
     ]
 
     if fp16:
@@ -185,7 +192,7 @@ def build_engine_from_onnx_trtexec(onnx_path: str, engine_path: str,
     print("\nBuilding TensorRT engine... This may take a while.\n")
 
     try:
-        result = subprocess.run(cmd, check=True, capture_output=False, text=True)
+        subprocess.run(cmd, check=True, capture_output=False, text=True)
         print(f"\n✓ TensorRT engine saved successfully to {engine_path}")
         return engine_path
     except subprocess.CalledProcessError as e:
